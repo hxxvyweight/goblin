@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -76,7 +77,11 @@ func newGoblinClient() (*GoblinClient, time.Time, incus.InstanceServer, error) {
 		InstanceCount: 0,
 		Version:       "goblin-0.1",
 	}
-	server := NewIncusInstance(g)
+	server, err := NewIncusInstance(g)
+	if err != nil {
+		fmt.Printf("error creating new incus server")
+		log.Fatal(err)
+	}
 	g.Server = server
 
 	fmt.Println(TermText)
@@ -119,18 +124,22 @@ func main() {
 
 			switch strings.TrimSpace(input) {
 			case "create":
-				CreateRequest(goblin, server)
+				err = CreateRequest(goblin, server)
+				if err != nil {
+					fmt.Printf("error creating instance", err)
+				}
 			case "list":
 				goblin.printInstances()
 			case "delete":
-				fmt.Print("\\|/ goblin |:: Specify a instance: ")
+				goblin.printInstances()
+				fmt.Print("\\|/ goblin |:: Specify a instance e.g: [1] || [5]\n")
+				fmt.Print("\\|/ goblin |:: ")
 				input, _ = reader.ReadString('\n')
 				err = DeleteRequest(goblin, server, strings.TrimSpace(input))
 				if err != nil {
-					fmt.Printf("Error in instance name: %v\n", err)
+					fmt.Printf("Error in deleting instance: %v\n", err)
 					continue
 				}
-				goblin.printInstances()
 			case "q":
 				endClient(startTime)
 			case "help":
