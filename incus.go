@@ -9,13 +9,23 @@ import (
 	"github.com/lxc/incus/shared/api"
 )
 
-func NewIncusInstance(c *Client) (u incus.InstanceServer) {
+var instanceName string
+
+func NewIncusInstance(g *GoblinClient) (u incus.InstanceServer) {
 	u, err := incus.ConnectIncusUnix("", nil)
 	if err != nil {
 		log.Fatalf("Failed to connect to Incus: %v", err)
 	}
 
 	return u
+}
+
+func GetInstancesRequest(u incus.InstanceServer) []api.Instance {
+	instances, err := u.GetInstances(api.InstanceTypeContainer)
+	if err != nil {
+		fmt.Printf("Failed to get instances: %v\n", err)
+	}
+	return instances
 }
 
 //API Execution
@@ -25,10 +35,10 @@ func NewIncusInstance(c *Client) (u incus.InstanceServer) {
 //StopRequest(u, instanceName)
 //DeleteRequest(u, instanceName)
 
-func CreateRequest(c *Client, u incus.InstanceServer) {
-	c.InstanceCount++
-	instanceName := fmt.Sprintf("worker-container-%d", c.InstanceCount)
-	fmt.Printf("Instances: %d\n", c.InstanceCount)
+func CreateRequest(goblin *GoblinClient, u incus.InstanceServer) {
+	goblin.InstanceCount++
+	instanceName = fmt.Sprintf("worker-container-%d", goblin.InstanceCount)
+	fmt.Printf("Instances: %d\n", goblin.InstanceCount)
 	req := api.InstancesPost{
 		Name: instanceName,
 		Type: api.InstanceTypeContainer,
@@ -111,11 +121,10 @@ func StartRequest(u incus.InstanceServer, instanceName string) {
 	}
 }
 
-func DeleteRequest(u incus.InstanceServer) {
+func DeleteRequest(g *GoblinClient, u incus.InstanceServer, instanceName string) {
 
-	fmt.Printf("Deleting instance\n")
-
-	deleteOp, err := u.DeleteInstance("worker-container-1")
+	fmt.Printf("Deleting instance: %s\n", instanceName)
+	deleteOp, err := u.DeleteInstance(instanceName)
 	if err != nil {
 		log.Fatal(err)
 	}
