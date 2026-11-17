@@ -40,7 +40,8 @@ func ByeGoblin() {
 }
 
 func PrintHelp() {
-	fmt.Println("|> create\n|> q [quit]\n|> help\n")
+	fmt.Println("Commands:\n create | delete | push | pull | start | stop | q [quit]")
+
 }
 
 func PrintInstancePrompt() {

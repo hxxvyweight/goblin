@@ -58,9 +58,9 @@ func (goblin GoblinClient) hasGZSuffix(part string) bool {
 	return strings.HasSuffix(part, ".gz")
 }
 
-// Return a instance of the goblin client with start time of the program
-// Return a instance of the incus server
-// Return error if working dir not found
+// Initialise goblin client, for communication with the incus API
+// Start time of program is created
+// Return to main
 func newGoblinClient() (*GoblinClient, time.Time, incus.InstanceServer, error) {
 
 	t := time.Now()
@@ -104,7 +104,7 @@ func endClient(t time.Time) {
 func main() {
 
 	//REPL for client
-	//Initiate a new goblin client, receive start time of program
+	//Initialise a new goblin client, receive start time of program
 	//A server instance and a goblin client instance
 	reader := bufio.NewReader(os.Stdin)
 	goblin, startTime, server, err := newGoblinClient()
@@ -117,82 +117,75 @@ func main() {
 	fmt.Println(TermText)
 	PrintGoblin()
 	for goblin.Status {
-		if goblin.Status {
+		fmt.Print("\\|/ goblin |:: ")
+		input, _ := reader.ReadString('\n')
 
-			fmt.Print("\\|/ goblin |:: ")
-			input, _ := reader.ReadString('\n')
+		switch strings.TrimSpace(input) {
+		case "create":
 
-			switch strings.TrimSpace(input) {
-			case "create":
+			err = CreateRequest(goblin, server)
+			if err != nil {
+				fmt.Printf("error creating instance", err)
+			}
+		case "start":
 
-				err = CreateRequest(goblin, server)
-				if err != nil {
-					fmt.Printf("error creating instance", err)
-				}
-			case "start":
+			PrintInstancePrompt()
+			input, _ = reader.ReadString('\n')
+			err = StartRequest(goblin, goblin.Server, strings.TrimSpace(input))
+			if err != nil {
+				fmt.Printf("Failed to start instance:", err)
 
-				PrintInstancePrompt()
-				input, _ = reader.ReadString('\n')
-				err = StartRequest(goblin, goblin.Server, strings.TrimSpace(input))
-				if err != nil {
-					fmt.Printf("Failed to start instance:", err)
+			}
+		case "push":
+			fileName := "test.txt"
+			file := openFile(fileName)
+			defer file.Close()
 
-				}
-			case "push":
-				fileName := "test.txt"
-				file := openFile(fileName)
-				defer file.Close()
+			PrintInstancePrompt()
+			input, _ = reader.ReadString('\n')
+			instanceNum := strings.TrimSpace(input)
 
-				PrintInstancePrompt()
-				input, _ = reader.ReadString('\n')
-				instanceNum := strings.TrimSpace(input)
+			err = PushFileToWorker(goblin, instanceNum, file, fileName)
+			if err != nil {
+				fmt.Errorf("Error pushing file to worker: %v\n", err)
+			}
+		case "pull":
+			PrintInstancePrompt()
+			input, _ = reader.ReadString('\n')
+			instanceNum := strings.TrimSpace(input)
+			filePath := "/tmp/test.txt"
 
-				err = PushFileToWorker(goblin, instanceNum, file, fileName)
-				if err != nil {
-					fmt.Errorf("Error pushing file to worker: %v\n", err)
-				}
-			case "pull":
-				PrintInstancePrompt()
-				input, _ = reader.ReadString('\n')
-				instanceNum := strings.TrimSpace(input)
-				filePath := "/tmp/test.txt"
+			err = PullFileFromWorker(goblin, instanceNum, filePath)
+			if err != nil {
+				fmt.Errorf("Error pulling file from worker: %v\n", err)
+			}
+		case "stop":
+			PrintInstancePrompt()
+			input, _ = reader.ReadString('\n')
+			err = StopRequest(goblin, goblin.Server, strings.TrimSpace(input))
+			if err != nil {
+				fmt.Printf("Failed to stop instance:", err)
 
-				err = PullFileFromWorker(goblin, instanceNum, filePath)
-				if err != nil {
-					fmt.Errorf("Error pulling file from worker: %v\n", err)
-				}
-			case "stop":
-				PrintInstancePrompt()
-				input, _ = reader.ReadString('\n')
-				err = StopRequest(goblin, goblin.Server, strings.TrimSpace(input))
-				if err != nil {
-					fmt.Printf("Failed to stop instance:", err)
-
-				}
-			case "list":
-				goblin.printInstances()
-			case "delete":
-				goblin.printInstances()
-				PrintInstancePrompt()
-				input, _ = reader.ReadString('\n')
-				err = DeleteRequest(goblin, server, strings.TrimSpace(input))
-				if err != nil {
-					fmt.Printf("Error in deleting instance: %v\n", err)
-					continue
-				}
-			case "q":
-				endClient(startTime)
-			case "help":
-				PrintHelp()
-			default:
+			}
+		case "list":
+			goblin.printInstances()
+		case "delete":
+			goblin.printInstances()
+			PrintInstancePrompt()
+			input, _ = reader.ReadString('\n')
+			err = DeleteRequest(goblin, server, strings.TrimSpace(input))
+			if err != nil {
+				fmt.Printf("Error in deleting instance: %v\n", err)
 				continue
 			}
-		} else {
-			fmt.Printf("Error - client not running: %t\n", goblin.Status)
-			os.Exit(1)
+		case "q":
+			endClient(startTime)
+		case "help":
+			PrintHelp()
+		default:
+			continue
 		}
 	}
-
 }
 
 func openFile(fileName string) *os.File {
