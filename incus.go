@@ -9,14 +9,26 @@ import (
 	"github.com/lxc/incus/shared/api"
 )
 
-func SpawnContainer() {
+func NewIncusInstance(c *Client) (u incus.InstanceServer) {
 	u, err := incus.ConnectIncusUnix("", nil)
 	if err != nil {
 		log.Fatalf("Failed to connect to Incus: %v", err)
 	}
 
-	instanceName := "worker-container-1"
+	return u
+}
 
+//API Execution
+//CreateRequest(u, instanceName)
+//StartRequest(u, instanceName)
+//ExecRequest(u, instanceName)
+//StopRequest(u, instanceName)
+//DeleteRequest(u, instanceName)
+
+func CreateRequest(c *Client, u incus.InstanceServer) {
+	c.InstanceCount++
+	instanceName := fmt.Sprintf("worker-container-%d", c.InstanceCount)
+	fmt.Printf("Instances: %d\n", c.InstanceCount)
 	req := api.InstancesPost{
 		Name: instanceName,
 		Type: api.InstanceTypeContainer,
@@ -40,18 +52,9 @@ func SpawnContainer() {
 		}
 		log.Printf("Successfully created container instance: %s", instanceName)
 	}
-
-	log.Printf("Container %s is now running", instanceName)
-
-	//API Execution
-	startRequest(u, instanceName)
-	execRequest(u, instanceName)
-	stopRequest(u, instanceName)
-	deleteRequest(u, instanceName)
-
 }
 
-func execRequest(u incus.InstanceServer, instanceName string) {
+func ExecRequest(u incus.InstanceServer, instanceName string) {
 	execReq := api.InstanceExecPost{
 		Command:     []string{"ls", "-la"},
 		WaitForWS:   true,
@@ -72,7 +75,7 @@ func execRequest(u incus.InstanceServer, instanceName string) {
 	}
 }
 
-func stopRequest(u incus.InstanceServer, instanceName string) {
+func StopRequest(u incus.InstanceServer, instanceName string) {
 
 	stopReq := api.InstanceStatePut{
 		Action:  "stop",
@@ -92,7 +95,7 @@ func stopRequest(u incus.InstanceServer, instanceName string) {
 
 }
 
-func startRequest(u incus.InstanceServer, instanceName string) {
+func StartRequest(u incus.InstanceServer, instanceName string) {
 
 	startReq := api.InstanceStatePut{
 		Action:  "start",
@@ -108,9 +111,9 @@ func startRequest(u incus.InstanceServer, instanceName string) {
 	}
 }
 
-func deleteRequest(u incus.InstanceServer, instanceName string) {
+func DeleteRequest(u incus.InstanceServer) {
 
-	fmt.Printf("Deleting instance: %s\n", instanceName)
+	fmt.Printf("Deleting instance\n")
 
 	deleteOp, err := u.DeleteInstance("worker-container-1")
 	if err != nil {

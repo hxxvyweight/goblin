@@ -8,38 +8,38 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	incus "github.com/lxc/incus/client"
 )
 
-const termText = "===================================================================="
-
 // Client holds: running status of program, working directory for
-// incus spawns, number of active containers
+// incus spawns, number of active containers.
 type Client struct {
-	Status     bool
-	Dir        string
-	Containers int
+	Status        bool
+	Dir           string
+	InstanceCount int
+	Version       string
+	Server        incus.InstanceServer
 }
 
-// Read log or text file and print individual seen lines and total count
-func readLog(reader *bufio.Reader) {
+// Read log or text file and print individual seen file paths
+// If specific files; e.g zip, tar, gz, iso, xz requiring
+// extra steps are found, spawn new incus container, push the
+// file(s) into the container and execute the standard reading
+// process after unzipping/mounting/extracting/etc.
+//
+// Then output content of all files within the extracted folder
+// into a file, prompt user then pull back to host if accepted.
+func (c Client) readLog(input string) error {
 	seen := make(map[string]struct{})
 
-	fmt.Print("\\|/ goblin |:: Specify a target file\n")
-	fmt.Print("\\|/ goblin |:> ")
-	input, err := reader.ReadString('\n')
-	for {
-		if input == "" || input == "\n" {
-			continue
-		}
-		break
-	}
-	file, err := os.Open(strings.TrimSpace(input))
+	file, err := os.Open(input)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer file.Close()
 	// New scanner for text file then
-	// iterate and check if individual string in line contains specified extension
+	// iterate and match individual strings to extensions
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -51,112 +51,103 @@ func readLog(reader *bufio.Reader) {
 		//Iterate over each string
 		//Pass to helper func for .gz check
 		for _, part := range parts {
-			if hasGZSuffix(part) {
+			if c.hasGZSuffix(part) {
 				seen[part] = struct{}{}
 			}
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	//Make new slice to sort and return valid paths
+	//Make new slice to sort and print valid paths
 	paths := make([]string, 0, len(seen))
 	for path := range seen {
 		paths = append(paths, path)
 	}
 
 	sort.Strings(paths)
-	printSlice(paths)
+	c.printSlice(paths)
+	return nil
 }
 
-func printSlice(validPaths []string) {
+// Iterate over slice and print
+func (c Client) printSlice(validPaths []string) {
 	for _, path := range validPaths {
 		fmt.Printf("[+]: %s\n", path)
 	}
 }
 
-func hasGZSuffix(part string) bool {
+// Check for .gz extension
+func (c Client) hasGZSuffix(part string) bool {
 	return strings.HasSuffix(part, ".gz")
 }
-
-func main() {
-
-	reader := bufio.NewReader(os.Stdin)
-
-	c, startTime, err := newClient()
-	if err != nil {
-		fmt.Printf("Error starting client: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("|> Started: %s\n|> Status: %t\n|> Dir: %s\n|> Containers: %d\n", startTime, c.Status, c.Dir, c.Containers)
-	fmt.Println(termText)
-
-	printGoblin()
-
-	fmt.Print("\\|/ goblin |:> ")
-	for {
-		input, _ := reader.ReadString('\n')
-		switch strings.TrimSpace(input) {
-		case "readlog":
-			readLog(reader)
-		case "q":
-			fmt.Println("/|\\ Exiting...")
-			os.Exit(1)
-		default:
-			continue
-		}
-	}
-
-}
-func execRead(c *Client, file *os.File, t time.Time) {
-	SpawnContainer()
-	endClient(t)
-}
-
-func newClient() (*Client, time.Time, error) {
+func newClient() (*Client, time.Time, incus.InstanceServer, error) {
 
 	t := time.Now()
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Printf("Error getting working directory: %v\n", err)
-		return nil, t, err
+		return nil, t, nil, err
 	}
 
 	c := &Client{
-		Status:     true,
-		Dir:        dir,
-		Containers: 0,
+		Status:        true,
+		Dir:           dir,
+		InstanceCount: 0,
+		Version:       "goblin-0.1",
 	}
+	server := NewIncusInstance(c)
+	c.Server = server
 
-	fmt.Println(termText)
+	fmt.Println(TermText)
 
-	return c, t, nil
+	return c, t, server, nil
 }
 
 func endClient(t time.Time) {
 
-	fmt.Println(termText + "\n")
-	fmt.Printf("|> Elapsed time: %v\n", time.Since(t))
-	fmt.Println("|> Done" + "\n")
-	fmt.Println("/|\\ Exiting...")
+	fmt.Println("\n" + TermText + "\n")
+	fmt.Printf("|:: Elapsed time: %v\n", time.Since(t))
+	fmt.Println("|:: Done" + "\n")
+	ByeGoblin()
+	fmt.Println("/|\\ Exiting...\n")
 	os.Exit(1)
 
 }
-func printGoblin() {
+func main() {
 
-	fmt.Println(`
-          /\_/\                    _______
-         ( o.o )       .-.        /       \
-         / > ^ \      /   \      |  $ $ $  |
-        / / \ \ \    | L O O T!  |_________|
-       (_/   \_)      \___/      [___________]
-      /           \              | $$$$$$$$$ |
-     /    GOBLIN   \             | $$$$$$$$$ |
-    /_______________\            |___________|`)
+	//New reader for Stdin
+	//New goblin client
+	reader := bufio.NewReader(os.Stdin)
+	c, startTime, server, err := newClient()
+	if err != nil {
+		fmt.Printf("Error starting client: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("|> Started: %s\n|> Status: %t\n|> Dir: %s\n|> Containers: %d\n|> Version: [%s]\n", startTime, c.Status, c.Dir, c.InstanceCount, c.Version)
+	fmt.Println(TermText)
+	PrintGoblin()
+	for c.Status {
 
-	fmt.Println(">>> GOBLIN CLIENT INITIALIZED!")
-	fmt.Println(">>> Ready to venture into the archives...\n")
+		fmt.Print("\\|/ goblin |:: ")
+		input, _ := reader.ReadString('\n')
+		switch strings.TrimSpace(input) {
+		case "1":
+			fmt.Print("\\|/ goblin |:: Specify a file: ")
+			input, _ = reader.ReadString('\n')
+			c.readLog(strings.TrimSpace(input))
+		case "create":
+			CreateRequest(c, server)
+		case "q":
+			DeleteRequest(server)
+			endClient(startTime)
+		case "help":
+			PrintHelp()
+		default:
+			continue
+		}
+	}
+
 }
