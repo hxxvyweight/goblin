@@ -29,15 +29,15 @@ func GetInstancesRequest(u incus.InstanceServer) []api.Instance {
 }
 
 //API Execution
-//CreateRequest(u, instanceName)
-//StartRequest(u, instanceName)
-//ExecRequest(u, instanceName)
-//StopRequest(u, instanceName)
-//DeleteRequest(u, instanceName)
+//CreateRequest(goblin, server)
+//StartRequest(goblin, server)
+//ExecRequest(goblin, server)
+//StopRequest(goblin, server)
+//DeleteRequest(goblin, server)
 
-func CreateRequest(goblin *GoblinClient, u incus.InstanceServer) {
+func CreateRequest(goblin *GoblinClient, u incus.InstanceServer) error {
 	goblin.InstanceCount++
-	instanceName = fmt.Sprintf("worker-container-%d", goblin.InstanceCount)
+	instanceName = fmt.Sprintf("worker-%s-%d", goblin.ImageName, goblin.InstanceCount)
 	fmt.Printf("Instances: %d\n", goblin.InstanceCount)
 	req := api.InstancesPost{
 		Name: instanceName,
@@ -47,9 +47,8 @@ func CreateRequest(goblin *GoblinClient, u incus.InstanceServer) {
 			Alias: "alpine-worker",
 		},
 		Config: map[string]string{
-			"security.privileged": "true",
+			"security.privileged": "false",
 			"security.nesting":    "true",
-			"raw.lxc":             "lxc.cgroup.dir = incus\nlxc.mount.auto = cgroup:mixed",
 		},
 	}
 
@@ -58,13 +57,15 @@ func CreateRequest(goblin *GoblinClient, u incus.InstanceServer) {
 		log.Printf("Instance might already exist, proceeding to start... (%v)", err)
 	} else {
 		if err = op.Wait(); err != nil {
-			log.Fatalf("Instance creation operation failed: %v", err)
+			fmt.Printf("Instance creation failed: %s\n%v\n", instanceName, err)
+			return err
 		}
 		log.Printf("Successfully created container instance: %s", instanceName)
 	}
+	return nil
 }
 
-func ExecRequest(u incus.InstanceServer, instanceName string) {
+func ExecRequest(u incus.InstanceServer, instanceName string) error {
 	execReq := api.InstanceExecPost{
 		Command:     []string{"ls", "-la"},
 		WaitForWS:   true,
@@ -77,15 +78,18 @@ func ExecRequest(u incus.InstanceServer, instanceName string) {
 	}
 	execOp, err := u.ExecInstance(instanceName, execReq, &execArgs)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Failed to perform exec operation on instance: %s\n%v\n", instanceName, err)
+		return err
+
 	}
 
 	if err = execOp.Wait(); err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error on exec Wait() operation: %s\n%v\n", instanceName, err)
+		return err
 	}
 }
 
-func StopRequest(u incus.InstanceServer, instanceName string) {
+func StopRequest(u incus.InstanceServer, instanceName string) error {
 
 	stopReq := api.InstanceStatePut{
 		Action:  "stop",
@@ -96,16 +100,18 @@ func StopRequest(u incus.InstanceServer, instanceName string) {
 
 	stateOp, err := u.UpdateInstanceState(instanceName, stopReq, "")
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Failed to perform stop operation on instance: %s\n%v\n", instanceName, err)
+		return err
 	}
 
 	if err = stateOp.Wait(); err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error on stop Wait() operation: %s\n%v\n", instanceName, err)
+		return err
 	}
 
 }
 
-func StartRequest(u incus.InstanceServer, instanceName string) {
+func StartRequest(u incus.InstanceServer, instanceName string) error {
 
 	startReq := api.InstanceStatePut{
 		Action:  "start",
@@ -113,22 +119,27 @@ func StartRequest(u incus.InstanceServer, instanceName string) {
 	}
 	stateOp, err := u.UpdateInstanceState(instanceName, startReq, "")
 	if err != nil {
-		log.Fatalf("Failed to trigger start operation: %v", err)
+		fmt.Printf("Failed to perform start operation on instance: %s\n%v\n", instanceName, err)
+		return err
 	}
 
 	if err = stateOp.Wait(); err != nil {
-		log.Fatalf("Container failed to start: %v", err)
+		fmt.Printf("Error on start Wait() operation: %v\n", err)
+		return err
 	}
 }
 
-func DeleteRequest(g *GoblinClient, u incus.InstanceServer, instanceName string) {
+func DeleteRequest(g *GoblinClient, u incus.InstanceServer, instanceName string) error {
 
 	fmt.Printf("Deleting instance: %s\n", instanceName)
 	deleteOp, err := u.DeleteInstance(instanceName)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Failed to perform delete operation on instance: %s\n%v\n", instanceName, err)
+		return err
 	}
 	if err = deleteOp.Wait(); err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error on delete Wait() operation: %s\n%v\n", instanceName, err)
+		return err
 	}
+	return nil
 }

@@ -29,6 +29,7 @@ import (
 type GoblinClient struct {
 	Status        bool
 	Dir           string
+	ImageName     string
 	InstanceCount int
 	Version       string
 	Server        incus.InstanceServer
@@ -37,8 +38,8 @@ type GoblinClient struct {
 // Print all current instances whether stopped or actively running
 // Make a request through the incus api to receive a slice of []api.Instances
 // Iterate and print
-func (goblin GoblinClient) printInstances(server incus.InstanceServer) {
-	instances := GetInstancesRequest(server)
+func (goblin GoblinClient) printInstances() {
+	instances := GetInstancesRequest(goblin.Server)
 	for _, in := range instances {
 		fmt.Printf("Name: %s\nStatus: %v\nType: %v\n", in.Name, in.Status, in.Type)
 	}
@@ -71,6 +72,7 @@ func newGoblinClient() (*GoblinClient, time.Time, incus.InstanceServer, error) {
 	g := &GoblinClient{
 		Status:        true,
 		Dir:           dir,
+		ImageName:     "alpine",
 		InstanceCount: 0,
 		Version:       "goblin-0.1",
 	}
@@ -119,12 +121,16 @@ func main() {
 			case "create":
 				CreateRequest(goblin, server)
 			case "list":
-				goblin.printInstances(server)
+				goblin.printInstances()
 			case "delete":
 				fmt.Print("\\|/ goblin |:: Specify a instance: ")
 				input, _ = reader.ReadString('\n')
-				DeleteRequest(goblin, server, strings.TrimSpace(input))
-				goblin.printInstances(server)
+				err = DeleteRequest(goblin, server, strings.TrimSpace(input))
+				if err != nil {
+					fmt.Printf("Error in instance name: %v\n", err)
+					continue
+				}
+				goblin.printInstances()
 			case "q":
 				endClient(startTime)
 			case "help":
