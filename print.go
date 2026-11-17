@@ -40,12 +40,12 @@ func ByeGoblin() {
 }
 
 func PrintHelp() {
-	fmt.Println("Commands:\n create | delete | push | pull | start | stop | q [quit]")
+	fmt.Println("Commands:\n create | delete | push | pull | start | stop | exit")
 
 }
 
 func PrintInstancePrompt() {
-	fmt.Print("\\|/ goblin |:: Specify a instance e.g: [1] || [5]\n")
+	fmt.Print("\\|/ goblin |:: Specify a instance e.g: [1] - [10]\n")
 	fmt.Print("\\|/ goblin |:: ")
 }
 func PrintFilePrompt() {

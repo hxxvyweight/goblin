@@ -116,9 +116,11 @@ func main() {
 	fmt.Printf("|> Started: %s\n|> Status: %t\n|> Dir: %s\n|> Containers: %d\n|> Version: [%s]\n", startTime, goblin.Status, goblin.Dir, goblin.InstanceCount, goblin.Version)
 	fmt.Println(TermText)
 	PrintGoblin()
+
 	for goblin.Status {
+
 		fmt.Print("\\|/ goblin |:: ")
-		input, _ := reader.ReadString('\n')
+		input := getInput(reader)
 
 		switch strings.TrimSpace(input) {
 		case "create":
@@ -130,7 +132,7 @@ func main() {
 		case "start":
 
 			PrintInstancePrompt()
-			input, _ = reader.ReadString('\n')
+			input = getInput(reader)
 			err = StartRequest(goblin, goblin.Server, strings.TrimSpace(input))
 			if err != nil {
 				fmt.Printf("Failed to start instance:", err)
@@ -142,27 +144,23 @@ func main() {
 			defer file.Close()
 
 			PrintInstancePrompt()
-			input, _ = reader.ReadString('\n')
-			instanceNum := strings.TrimSpace(input)
-
+			instanceNum := getInput(reader)
 			err = PushFileToWorker(goblin, instanceNum, file, fileName)
 			if err != nil {
 				fmt.Errorf("Error pushing file to worker: %v\n", err)
 			}
 		case "pull":
 			PrintInstancePrompt()
-			input, _ = reader.ReadString('\n')
-			instanceNum := strings.TrimSpace(input)
+			instanceNum := getInput(reader)
 			filePath := "/tmp/test.txt"
-
 			err = PullFileFromWorker(goblin, instanceNum, filePath)
 			if err != nil {
 				fmt.Errorf("Error pulling file from worker: %v\n", err)
 			}
 		case "stop":
 			PrintInstancePrompt()
-			input, _ = reader.ReadString('\n')
-			err = StopRequest(goblin, goblin.Server, strings.TrimSpace(input))
+			input = getInput(reader)
+			err = StopRequest(goblin, goblin.Server, input)
 			if err != nil {
 				fmt.Printf("Failed to stop instance:", err)
 
@@ -172,13 +170,13 @@ func main() {
 		case "delete":
 			goblin.printInstances()
 			PrintInstancePrompt()
-			input, _ = reader.ReadString('\n')
+			input = getInput(reader)
 			err = DeleteRequest(goblin, server, strings.TrimSpace(input))
 			if err != nil {
 				fmt.Printf("Error in deleting instance: %v\n", err)
 				continue
 			}
-		case "q":
+		case "exit":
 			endClient(startTime)
 		case "help":
 			PrintHelp()
@@ -195,4 +193,18 @@ func openFile(fileName string) *os.File {
 	}
 	return f
 
+}
+
+func getInput(reader *bufio.Reader) string {
+	for {
+		s, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Errorf("Error reading user input")
+		}
+		if s != "" {
+			return strings.TrimSpace(s)
+		}
+	}
+
+	return ""
 }
