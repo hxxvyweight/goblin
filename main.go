@@ -123,27 +123,48 @@ func main() {
 			input, _ := reader.ReadString('\n')
 
 			switch strings.TrimSpace(input) {
-			case "file":
-				PrintFilePrompt()
-				input, _ = reader.ReadString('\n')
-
 			case "create":
+
 				err = CreateRequest(goblin, server)
 				if err != nil {
 					fmt.Printf("error creating instance", err)
 				}
 			case "start":
+
 				PrintInstancePrompt()
 				input, _ = reader.ReadString('\n')
-				err = StartRequest(goblin, server, strings.TrimSpace(input))
+				err = StartRequest(goblin, goblin.Server, strings.TrimSpace(input))
 				if err != nil {
 					fmt.Printf("Failed to start instance:", err)
 
 				}
+			case "push":
+				fileName := "test.txt"
+				file := openFile(fileName)
+				defer file.Close()
+
+				PrintInstancePrompt()
+				input, _ = reader.ReadString('\n')
+				instanceNum := strings.TrimSpace(input)
+
+				err = PushFileToWorker(goblin, instanceNum, file, fileName)
+				if err != nil {
+					fmt.Errorf("Error pushing file to worker: %v\n", err)
+				}
+			case "pull":
+				PrintInstancePrompt()
+				input, _ = reader.ReadString('\n')
+				instanceNum := strings.TrimSpace(input)
+				filePath := "/tmp/test.txt"
+
+				err = PullFileFromWorker(goblin, instanceNum, filePath)
+				if err != nil {
+					fmt.Errorf("Error pulling file from worker: %v\n", err)
+				}
 			case "stop":
 				PrintInstancePrompt()
 				input, _ = reader.ReadString('\n')
-				err = StopRequest(goblin, server, strings.TrimSpace(input))
+				err = StopRequest(goblin, goblin.Server, strings.TrimSpace(input))
 				if err != nil {
 					fmt.Printf("Failed to stop instance:", err)
 
@@ -171,5 +192,14 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+}
+
+func openFile(fileName string) *os.File {
+	f, err := os.Open(fileName)
+	if err != nil {
+		log.Fatalf("failed to open file: %v", err)
+	}
+	return f
 
 }

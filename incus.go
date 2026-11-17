@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 
 	incus "github.com/lxc/incus/client"
 	"github.com/lxc/incus/shared/api"
@@ -153,5 +155,45 @@ func DeleteRequest(g *GoblinClient, u incus.InstanceServer, instanceNum string) 
 		fmt.Printf("Error on delete Wait() operation: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
 		return err
 	}
+	return nil
+}
+
+func PushFileToWorker(g *GoblinClient, instanceNum string, file *os.File, fileName string) error {
+	instanceName := fmt.Sprintf("worker-%s-%s", g.ImageName, instanceNum)
+	containerDst := filepath.Join("/tmp", fileName)
+
+	args := incus.InstanceFileArgs{
+		Content:   file,
+		GID:       0,
+		UID:       0,
+		Mode:      0644,
+		Type:      "file",
+		WriteMode: "overwrite",
+	}
+
+	if err := g.Server.CreateInstanceFile(instanceName, containerDst, args); err != nil {
+		return fmt.Errorf("failed to push file to container %s: %w", instanceName, err)
+	}
+
+	return nil
+
+}
+func PullFileFromWorker(g *GoblinClient, instanceNum string, filePath string) error {
+	instanceName := fmt.Sprintf("worker-%s-%s", g.ImageName, instanceNum)
+
+	content, _, err := g.Server.GetInstanceFile(instanceName, filePath)
+	if err != nil {
+		return fmt.Errorf("Error getting instance file: %s: %w\n", instanceName, err)
+	}
+	defer content.Close()
+
+	data, err := io.ReadAll(content)
+	if err != nil {
+		return fmt.Errorf("failed to read file content: %w", err)
+	}
+	fmt.Printf("\n--- Contents of %s ---\n", filePath)
+	fmt.Println(string(data))
+	fmt.Println("--------------------------------")
+
 	return nil
 }
