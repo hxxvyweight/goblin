@@ -42,3 +42,12 @@ func ByeGoblin() {
 func PrintHelp() {
 	fmt.Println("|> create\n|> q [quit]\n|> help\n")
 }
+
+func PrintInstancePrompt() {
+	fmt.Print("\\|/ goblin |:: Specify a instance e.g: [1] || [5]\n")
+	fmt.Print("\\|/ goblin |:: ")
+}
+func PrintFilePrompt() {
+	fmt.Print("\\|/ goblin |:: Specify a file e.g: example.zip \n")
+	fmt.Print("\\|/ goblin |:: ")
+}

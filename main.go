@@ -123,17 +123,36 @@ func main() {
 			input, _ := reader.ReadString('\n')
 
 			switch strings.TrimSpace(input) {
+			case "file":
+				PrintFilePrompt()
+				input, _ = reader.ReadString('\n')
+
 			case "create":
 				err = CreateRequest(goblin, server)
 				if err != nil {
 					fmt.Printf("error creating instance", err)
 				}
+			case "start":
+				PrintInstancePrompt()
+				input, _ = reader.ReadString('\n')
+				err = StartRequest(goblin, server, strings.TrimSpace(input))
+				if err != nil {
+					fmt.Printf("Failed to start instance:", err)
+
+				}
+			case "stop":
+				PrintInstancePrompt()
+				input, _ = reader.ReadString('\n')
+				err = StopRequest(goblin, server, strings.TrimSpace(input))
+				if err != nil {
+					fmt.Printf("Failed to stop instance:", err)
+
+				}
 			case "list":
 				goblin.printInstances()
 			case "delete":
 				goblin.printInstances()
-				fmt.Print("\\|/ goblin |:: Specify a instance e.g: [1] || [5]\n")
-				fmt.Print("\\|/ goblin |:: ")
+				PrintInstancePrompt()
 				input, _ = reader.ReadString('\n')
 				err = DeleteRequest(goblin, server, strings.TrimSpace(input))
 				if err != nil {
