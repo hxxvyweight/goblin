@@ -28,11 +28,12 @@ import (
 // or unexpected occurrences happen.
 
 type GoblinClient struct {
-	Status    bool
-	Dir       string
-	ImageName string
-	Version   string
-	Server    incus.InstanceServer
+	Status        bool
+	Dir           string
+	ImageName     string
+	InstanceCount int
+	Version       string
+	Server        incus.InstanceServer
 }
 
 // Print all current instances whether stopped or actively running
@@ -70,10 +71,11 @@ func newGoblinClient() (*GoblinClient, time.Time, error) {
 	}
 
 	g := &GoblinClient{
-		Status:    true,
-		Dir:       dir,
-		ImageName: "alpine",
-		Version:   "goblin-0.1",
+		Status:        true,
+		Dir:           dir,
+		ImageName:     "alpine",
+		InstanceCount: 0,
+		Version:       "goblin-0.1",
 	}
 	server, err := NewIncusInstance()
 	if err != nil {
@@ -176,16 +178,11 @@ func getInput(reader *bufio.Reader) string {
 func pull(goblin *GoblinClient, reader *bufio.Reader) {
 	PrintInstancePrompt()
 	instanceNum := getInput(reader)
-	entries := GetFileNames()
-	for i, entry := range entries {
-
-		reportPath := fmt.Sprintf("/tmp/%s", entry.Name())
-		fmt.Printf("Opening file [%d]: %s\n", i, entry)
-
-		err := PullFileFromWorker(goblin, instanceNum, reportPath)
-		if err != nil {
-			fmt.Printf("Error pulling file from worker: %v | File no: %d\nFile name: %s\n", err, i, entry.Name())
-		}
+	//entries := GetFileNames()
+	reportPath := fmt.Sprintf("/tmp/report.json")
+	err := PullFileFromWorker(goblin, instanceNum, reportPath)
+	if err != nil {
+		fmt.Printf("Error pulling file from worker: %v | File no: %d\nFile name: report.json\n", err)
 	}
 }
 func push(goblin *GoblinClient, reader *bufio.Reader) {
@@ -208,6 +205,16 @@ func push(goblin *GoblinClient, reader *bufio.Reader) {
 		if err != nil {
 			fmt.Printf("Error pushing file to worker: %v | File no: %d\nFile name: %s\n", err, i, entry.Name())
 		}
+	}
+	filePath := fmt.Sprintf("workers/analyzer-zip/target/x86_64-unknown-linux-musl/release/analyzer-zip")
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Printf("Error opening Rust executable: %s\n", err)
+	}
+	err = PushFileToWorker(goblin, instanceNum, file, "analyzer-zip")
+	file.Close()
+	if err != nil {
+		fmt.Printf("Error pushing file to worker: %w", err)
 	}
 
 }
