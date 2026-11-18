@@ -134,6 +134,10 @@ func main() {
 		case "push":
 			push(goblin, reader)
 		case "pull":
+			err := ExecRequest(goblin, "1")
+			if err != nil {
+				fmt.Println(err)
+			}
 			pull(goblin, reader)
 		case "stop":
 			stop(goblin, reader)

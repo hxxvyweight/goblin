@@ -75,7 +75,7 @@ func ExecRequest(goblin *GoblinClient, instanceNum string) error {
 	fmt.Printf("Executing on instance: worker-%s-%s\n", goblin.ImageName, instanceNum)
 
 	execReq := api.InstanceExecPost{
-		Command:     []string{"ls", "-la"},
+		Command:     []string{"sh", "-c", "chmod +x /tmp/analyzer-zip && /tmp/analyzer-zip /tmp/test.zip"},
 		WaitForWS:   true,
 		Interactive: false,
 	}
