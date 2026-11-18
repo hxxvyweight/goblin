@@ -17,15 +17,6 @@ import (
 // - version of program,
 // - server instance ( see: github.com/lxc/incus/client#InstanceServer)
 
-// This will be used and passed to the incus.go functions
-// for API execution, the count is handled within each
-// create and delete function: CreateRequest and DeleteRequest
-// The server is received with newIncusInstance() and passed
-// into the client.
-
-// Status is here as another safety check if standard errors
-// or unexpected occurrences happen.
-
 type GoblinClient struct {
 	Status        bool
 	Dir           string
@@ -66,7 +57,7 @@ func newGoblinClient() (*GoblinClient, time.Time, error) {
 	}
 	server, err := NewIncusInstance()
 	if err != nil {
-		fmt.Printf("error creating new incus server")
+		fmt.Printf("error creating new incus server: %v\n", err)
 		return nil, t, err
 	}
 	g.Server = server
@@ -146,14 +137,14 @@ func getInput(reader *bufio.Reader) string {
 	for {
 		s, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Errorf("Error reading user input")
+			fmt.Printf("Error reading user input: %v\n", err)
+			return ""
 		}
 		if s != "" {
 			return strings.TrimSpace(s)
 		}
 	}
 
-	return ""
 }
 
 // Create, Delete, Stop, Start, Push, Pull
@@ -164,7 +155,7 @@ func pull(goblin *GoblinClient, reader *bufio.Reader) {
 	reportPath := fmt.Sprintf("/tmp/report.json")
 	err := PullFileFromWorker(goblin, instanceNum, reportPath)
 	if err != nil {
-		fmt.Printf("Error pulling file from worker: %v | File no: %d\nFile name: report.json\n", err)
+		fmt.Printf("Error pulling file from worker: %v | File name: report.json\n", err)
 	}
 }
 func push(goblin *GoblinClient, reader *bufio.Reader) {
@@ -180,30 +171,30 @@ func push(goblin *GoblinClient, reader *bufio.Reader) {
 		file, err := os.Open(filePath)
 		if err != nil {
 			fmt.Printf("Error opening file: %v\n", err)
-			continue
+			return
 		}
 		err = PushFileToWorker(goblin, instanceNum, file, entry.Name())
-		file.Close()
 		if err != nil {
 			fmt.Printf("Error pushing file to worker: %v | File no: %d\nFile name: %s\n", err, i, entry.Name())
 		}
+		file.Close()
 	}
 	filePath := fmt.Sprintf("workers/analyzer-zip/target/x86_64-unknown-linux-musl/release/analyzer-zip")
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Printf("Error opening Rust executable: %s\n", err)
+		fmt.Printf("Error opening Rust executable: %v\n", err)
 	}
 	err = PushFileToWorker(goblin, instanceNum, file, "analyzer-zip")
 	file.Close()
 	if err != nil {
-		fmt.Printf("Error pushing file to worker: %w", err)
+		fmt.Printf("Error pushing file to worker: %v", err)
 	}
 
 }
 func create(goblin *GoblinClient, reader *bufio.Reader) {
 	err := CreateRequest(goblin)
 	if err != nil {
-		fmt.Printf("failed to create instance", err)
+		fmt.Printf("failed to create instance: %v\n", err)
 	}
 	goblin.printInstances()
 }
