@@ -39,8 +39,8 @@ type GoblinClient struct {
 // Print all current instances whether stopped or actively running
 // Make a request through the incus api to receive a slice of []api.Instances
 // Iterate and print
-func (goblin GoblinClient) printInstances() {
-	instances := GetInstancesRequest(goblin.Server)
+func (goblin *GoblinClient) printInstances() {
+	instances := GetInstancesRequest(goblin)
 	for _, in := range instances {
 		fmt.Printf("Name: %s\nStatus: %v\nType: %v\n", in.Name, in.Status, in.Type)
 	}
@@ -61,13 +61,13 @@ func (goblin GoblinClient) hasGZSuffix(part string) bool {
 // Initialise goblin client, for communication with the incus API
 // Start time of program is created
 // Return to main
-func newGoblinClient() (*GoblinClient, time.Time, incus.InstanceServer, error) {
+func newGoblinClient() (*GoblinClient, time.Time, error) {
 
 	t := time.Now()
 	dir, err := os.Getwd()
 	if err != nil {
 		fmt.Printf("Error getting working directory: %v\n", err)
-		return nil, t, nil, err
+		return nil, t, err
 	}
 
 	g := &GoblinClient{
@@ -77,7 +77,7 @@ func newGoblinClient() (*GoblinClient, time.Time, incus.InstanceServer, error) {
 		InstanceCount: 0,
 		Version:       "goblin-0.1",
 	}
-	server, err := NewIncusInstance(g)
+	server, err := NewIncusInstance()
 	if err != nil {
 		fmt.Printf("error creating new incus server")
 		log.Fatal(err)
@@ -86,7 +86,7 @@ func newGoblinClient() (*GoblinClient, time.Time, incus.InstanceServer, error) {
 
 	fmt.Println(TermText)
 
-	return g, t, server, nil
+	return g, t, nil
 }
 
 // End the client, print ASCII and terminal text
@@ -107,7 +107,7 @@ func main() {
 	//Initialise a new goblin client, receive start time of program
 	//A server instance and a goblin client instance
 	reader := bufio.NewReader(os.Stdin)
-	goblin, startTime, server, err := newGoblinClient()
+	goblin, startTime, err := newGoblinClient()
 	if err != nil {
 		fmt.Printf("Error starting client: %v\n", err)
 		os.Exit(1)
@@ -122,60 +122,25 @@ func main() {
 		fmt.Print("\\|/ goblin |:: ")
 		input := getInput(reader)
 
-		switch strings.TrimSpace(input) {
+		switch input {
 		case "create":
-
-			err = CreateRequest(goblin, server)
-			if err != nil {
-				fmt.Printf("error creating instance", err)
-			}
+			create(goblin, reader)
+		case "delete":
+			delete(goblin, reader)
+		case "delete all":
+			deleteAll(goblin)
 		case "start":
-
-			PrintInstancePrompt()
-			input = getInput(reader)
-			err = StartRequest(goblin, goblin.Server, strings.TrimSpace(input))
-			if err != nil {
-				fmt.Printf("Failed to start instance:", err)
-
-			}
+			start(goblin, reader)
 		case "push":
-			fileName := "test.txt"
-			file := openFile(fileName)
-			defer file.Close()
-
-			PrintInstancePrompt()
-			instanceNum := getInput(reader)
-			err = PushFileToWorker(goblin, instanceNum, file, fileName)
-			if err != nil {
-				fmt.Errorf("Error pushing file to worker: %v\n", err)
-			}
+			push(goblin, reader)
 		case "pull":
-			PrintInstancePrompt()
-			instanceNum := getInput(reader)
-			filePath := "/tmp/test.txt"
-			err = PullFileFromWorker(goblin, instanceNum, filePath)
-			if err != nil {
-				fmt.Errorf("Error pulling file from worker: %v\n", err)
-			}
+			pull(goblin, reader)
 		case "stop":
-			PrintInstancePrompt()
-			input = getInput(reader)
-			err = StopRequest(goblin, goblin.Server, input)
-			if err != nil {
-				fmt.Printf("Failed to stop instance:", err)
-
-			}
+			stop(goblin, reader)
+		case "queue":
+			PrintFilePaths()
 		case "list":
 			goblin.printInstances()
-		case "delete":
-			goblin.printInstances()
-			PrintInstancePrompt()
-			input = getInput(reader)
-			err = DeleteRequest(goblin, server, strings.TrimSpace(input))
-			if err != nil {
-				fmt.Printf("Error in deleting instance: %v\n", err)
-				continue
-			}
 		case "exit":
 			endClient(startTime)
 		case "help":
@@ -207,4 +172,89 @@ func getInput(reader *bufio.Reader) string {
 	}
 
 	return ""
+}
+
+// Create, Delete, Stop, Start, Push, Pull
+func pull(goblin *GoblinClient, reader *bufio.Reader) {
+	PrintInstancePrompt()
+	instanceNum := getInput(reader)
+	filePath := getInput(reader)
+	err := PullFileFromWorker(goblin, instanceNum, filePath)
+	if err != nil {
+		fmt.Errorf("Error pulling file from worker: %v\n", err)
+	}
+}
+func push(goblin *GoblinClient, reader *bufio.Reader) {
+	PrintInstancePrompt()
+	instanceNum := getInput(reader)
+	fmt.Println("Getting entries")
+	entries := GetFileNames()
+	for i, entry := range entries {
+
+		fmt.Printf("Opening file [%d]: %s\n", i, entry)
+
+		file, err := os.Open(entry.Name())
+		if err != nil {
+			fmt.Printf("Error opening file: %v\n", err)
+			continue
+		}
+		err = PushFileToWorker(goblin, instanceNum, file, entry.Name())
+		file.Close()
+		if err != nil {
+			fmt.Printf("Error pushing file to worker: %v | File no: %d\nFile name: %s\n", err, i, entry.Name())
+		}
+	}
+
+}
+func create(goblin *GoblinClient, reader *bufio.Reader) {
+	err := CreateRequest(goblin)
+	if err != nil {
+		fmt.Printf("failed to create instance", err)
+	}
+	goblin.printInstances()
+}
+func start(goblin *GoblinClient, reader *bufio.Reader) {
+	PrintInstancePrompt()
+	input := getInput(reader)
+	err := StartRequest(goblin, input)
+	if err != nil {
+		fmt.Printf("failed to start instance:", err)
+
+	}
+}
+func stop(goblin *GoblinClient, reader *bufio.Reader) {
+
+	PrintInstancePrompt()
+	input := getInput(reader)
+	err := StopRequest(goblin, input)
+	if err != nil {
+		fmt.Printf("failed to stop instance:", err)
+
+	}
+}
+func delete(goblin *GoblinClient, reader *bufio.Reader) {
+	goblin.printInstances()
+	PrintInstancePrompt()
+	input := getInput(reader)
+	err := DeleteRequest(goblin, input)
+	if err != nil {
+		fmt.Printf("failed to delete instance: %v\n", err)
+	}
+}
+func deleteAll(goblin *GoblinClient) {
+	instances := GetInstancesRequest(goblin)
+	for _, entry := range instances {
+		if entry.Status != "Stopped" {
+			err := StopAllRequest(goblin, entry.Name)
+			if err != nil {
+				fmt.Printf("Error stopping instance: %s\n", entry.Name)
+				continue
+			}
+		}
+		err := DeleteAllRequest(goblin, entry.Name)
+		if err != nil {
+			fmt.Printf("Error deleting entry: %v\n", entry)
+		}
+	}
+
 }

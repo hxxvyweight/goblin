@@ -13,7 +13,7 @@ import (
 
 var instanceName string
 
-func NewIncusInstance(g *GoblinClient) (u incus.InstanceServer, err error) {
+func NewIncusInstance() (u incus.InstanceServer, err error) {
 	u, err = incus.ConnectIncusUnix("", nil)
 	if err != nil {
 		log.Fatalf("Failed to connect to Incus: %v", err)
@@ -23,8 +23,8 @@ func NewIncusInstance(g *GoblinClient) (u incus.InstanceServer, err error) {
 	return u, nil
 }
 
-func GetInstancesRequest(u incus.InstanceServer) []api.Instance {
-	instances, err := u.GetInstances(api.InstanceTypeContainer)
+func GetInstancesRequest(goblin *GoblinClient) []api.Instance {
+	instances, err := goblin.Server.GetInstances(api.InstanceTypeContainer)
 	if err != nil {
 		fmt.Printf("Failed to get instances: %v\n", err)
 	}
@@ -38,11 +38,10 @@ func GetInstancesRequest(u incus.InstanceServer) []api.Instance {
 //StopRequest(goblin, server)
 //DeleteRequest(goblin, server)
 
-func CreateRequest(goblin *GoblinClient, u incus.InstanceServer) error {
+func CreateRequest(goblin *GoblinClient) error {
 	goblin.InstanceCount++
 	instanceNum := fmt.Sprintf("%d", goblin.InstanceCount)
 	instanceName := fmt.Sprintf("worker-%s-%s", goblin.ImageName, instanceNum)
-	fmt.Printf("Instances: %d\n", goblin.InstanceCount)
 	req := api.InstancesPost{
 		Name: instanceName,
 		Type: api.InstanceTypeContainer,
@@ -57,7 +56,7 @@ func CreateRequest(goblin *GoblinClient, u incus.InstanceServer) error {
 		},
 	}
 
-	op, err := u.CreateInstance(req)
+	op, err := goblin.Server.CreateInstance(req)
 	if err != nil {
 		fmt.Printf("Error creating instance operation: %s\n%v", instanceName, err)
 		return err
@@ -71,9 +70,9 @@ func CreateRequest(goblin *GoblinClient, u incus.InstanceServer) error {
 	return nil
 }
 
-func ExecRequest(g *GoblinClient, u incus.InstanceServer, instanceNum string) error {
-	instanceName := fmt.Sprintf("worker-%s-%s", g.ImageName, instanceNum)
-	fmt.Printf("Executing on instance: worker-%s-%s\n", g.ImageName, instanceNum)
+func ExecRequest(goblin *GoblinClient, instanceNum string) error {
+	instanceName := fmt.Sprintf("worker-%s-%s", goblin.ImageName, instanceNum)
+	fmt.Printf("Executing on instance: worker-%s-%s\n", goblin.ImageName, instanceNum)
 
 	execReq := api.InstanceExecPost{
 		Command:     []string{"ls", "-la"},
@@ -85,81 +84,116 @@ func ExecRequest(g *GoblinClient, u incus.InstanceServer, instanceNum string) er
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
-	execOp, err := u.ExecInstance(instanceName, execReq, &execArgs)
+	execOp, err := goblin.Server.ExecInstance(instanceName, execReq, &execArgs)
 	if err != nil {
-		fmt.Printf("Failed to perform exec operation on instance: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
+		fmt.Printf("Failed to perform exec operation on instance: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
 		return err
 	}
 
 	if err = execOp.Wait(); err != nil {
-		fmt.Printf("Error on exec Wait() operation: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
+		fmt.Printf("Error on exec Wait() operation: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
 		return err
 	}
 	return nil
 }
 
-func StopRequest(g *GoblinClient, u incus.InstanceServer, instanceNum string) error {
-	instanceName := fmt.Sprintf("worker-%s-%s", g.ImageName, instanceNum)
+func StopRequest(goblin *GoblinClient, instanceNum string) error {
+	instanceName := fmt.Sprintf("worker-%s-%s", goblin.ImageName, instanceNum)
 	stopReq := api.InstanceStatePut{
 		Action:  "stop",
 		Timeout: -1,
 	}
 
-	fmt.Printf("Stopping instance: worker-%s-%s\n", g.ImageName, instanceNum)
+	fmt.Printf("Stopping instance: worker-%s-%s\n", goblin.ImageName, instanceNum)
 
-	stateOp, err := u.UpdateInstanceState(instanceName, stopReq, "")
+	stateOp, err := goblin.Server.UpdateInstanceState(instanceName, stopReq, "")
 	if err != nil {
-		fmt.Printf("Failed to perform stop operation on instance: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
+		fmt.Printf("Failed to perform stop operation on instance: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
 		return err
 	}
 
 	if err = stateOp.Wait(); err != nil {
-		fmt.Printf("Error on stop Wait() operation: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
+		fmt.Printf("Error on stop Wait() operation: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
+		return err
+	}
+	return nil
+}
+func StopAllRequest(goblin *GoblinClient, instanceName string) error {
+	stopReq := api.InstanceStatePut{
+		Action:  "stop",
+		Timeout: -1,
+	}
+
+	fmt.Printf("Stopping instance: worker-%s-%s\n", goblin.ImageName, instanceName)
+
+	stateOp, err := goblin.Server.UpdateInstanceState(instanceName, stopReq, "")
+	if err != nil {
+		fmt.Printf("Failed to perform stop operation on instance: worker-%s-%s\n%v\n", goblin.ImageName, instanceName, err)
+		return err
+	}
+
+	if err = stateOp.Wait(); err != nil {
+		fmt.Printf("Error on stop Wait() operation: worker-%s-%s\n%v\n", goblin.ImageName, instanceName, err)
 		return err
 	}
 	return nil
 }
 
-func StartRequest(g *GoblinClient, u incus.InstanceServer, instanceNum string) error {
-	instanceName := fmt.Sprintf("worker-%s-%s", g.ImageName, instanceNum)
+func StartRequest(goblin *GoblinClient, instanceNum string) error {
+	instanceName := fmt.Sprintf("worker-%s-%s", goblin.ImageName, instanceNum)
 	startReq := api.InstanceStatePut{
 		Action:  "start",
 		Timeout: -1,
 	}
 
-	fmt.Printf("Starting instance: worker-%s-%s\n", g.ImageName, instanceNum)
+	fmt.Printf("Starting instance: worker-%s-%s\n", goblin.ImageName, instanceNum)
 
-	stateOp, err := u.UpdateInstanceState(instanceName, startReq, "")
+	stateOp, err := goblin.Server.UpdateInstanceState(instanceName, startReq, "")
 	if err != nil {
-		fmt.Printf("Failed to perform start operation on instance: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
+		fmt.Printf("Failed to perform start operation on instance: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
 		return err
 	}
 
 	if err = stateOp.Wait(); err != nil {
-		fmt.Printf("Error on start Wait() operation: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
+		fmt.Printf("Error on start Wait() operation: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
 		return err
 	}
 	return nil
 }
 
-func DeleteRequest(g *GoblinClient, u incus.InstanceServer, instanceNum string) error {
-	instanceName := fmt.Sprintf("worker-%s-%s", g.ImageName, instanceNum)
-	fmt.Printf("Deleting instance: worker-%s-%s\n", g.ImageName, instanceNum)
+func DeleteRequest(goblin *GoblinClient, instanceNum string) error {
+	instanceName := fmt.Sprintf("worker-%s-%s", goblin.ImageName, instanceNum)
+	fmt.Printf("Deleting instance: worker-%s-%s\n", goblin.ImageName, instanceNum)
 
-	deleteOp, err := u.DeleteInstance(instanceName)
+	deleteOp, err := goblin.Server.DeleteInstance(instanceName)
 	if err != nil {
-		fmt.Printf("Failed to perform delete operation on instance: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
+		fmt.Printf("Failed to perform delete operation on instance: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
 		return err
 	}
 	if err = deleteOp.Wait(); err != nil {
-		fmt.Printf("Error on delete Wait() operation: worker-%s-%s\n%v\n", g.ImageName, instanceNum, err)
+		fmt.Printf("Error on delete Wait() operation: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
 		return err
 	}
 	return nil
 }
 
-func PushFileToWorker(g *GoblinClient, instanceNum string, file *os.File, fileName string) error {
-	instanceName := fmt.Sprintf("worker-%s-%s", g.ImageName, instanceNum)
+func DeleteAllRequest(goblin *GoblinClient, instanceName string) error {
+
+	deleteOp, err := goblin.Server.DeleteInstance(instanceName)
+	if err != nil {
+		fmt.Printf("Failed to perform delete operation on instance: worker-%s-%s\n%v\n", goblin.ImageName, instanceName, err)
+		return err
+	}
+	if err = deleteOp.Wait(); err != nil {
+		fmt.Printf("Error on delete Wait() operation: worker-%s-%s\n%v\n", goblin.ImageName, instanceName, err)
+		return err
+	}
+	return nil
+
+}
+
+func PushFileToWorker(goblin *GoblinClient, instanceNum string, file *os.File, fileName string) error {
+	instanceName := fmt.Sprintf("worker-%s-%s", goblin.ImageName, instanceNum)
 	containerDst := filepath.Join("/tmp", fileName)
 
 	args := incus.InstanceFileArgs{
@@ -171,17 +205,17 @@ func PushFileToWorker(g *GoblinClient, instanceNum string, file *os.File, fileNa
 		WriteMode: "overwrite",
 	}
 
-	if err := g.Server.CreateInstanceFile(instanceName, containerDst, args); err != nil {
+	if err := goblin.Server.CreateInstanceFile(instanceName, containerDst, args); err != nil {
 		return fmt.Errorf("failed to push file to container %s: %w", instanceName, err)
 	}
 
 	return nil
-
 }
-func PullFileFromWorker(g *GoblinClient, instanceNum string, filePath string) error {
-	instanceName := fmt.Sprintf("worker-%s-%s", g.ImageName, instanceNum)
 
-	content, _, err := g.Server.GetInstanceFile(instanceName, filePath)
+func PullFileFromWorker(goblin *GoblinClient, instanceNum string, filePath string) error {
+	instanceName := fmt.Sprintf("worker-%s-%s", goblin.ImageName, instanceNum)
+
+	content, _, err := goblin.Server.GetInstanceFile(instanceName, filePath)
 	if err != nil {
 		return fmt.Errorf("Error getting instance file: %s: %w\n", instanceName, err)
 	}
