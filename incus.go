@@ -124,7 +124,7 @@ func StopAllRequest(goblin *GoblinClient, instanceName string) error {
 		Timeout: -1,
 	}
 
-	fmt.Printf("Stopping instance: worker-%s-%s\n", goblin.ImageName, instanceName)
+	fmt.Printf("Stopping instance: %s\n", instanceName)
 
 	stateOp, err := goblin.Server.UpdateInstanceState(instanceName, stopReq, "")
 	if err != nil {
@@ -133,7 +133,7 @@ func StopAllRequest(goblin *GoblinClient, instanceName string) error {
 	}
 
 	if err = stateOp.Wait(); err != nil {
-		fmt.Printf("Error on stop Wait() operation: worker-%s-%s\n%v\n", goblin.ImageName, instanceName, err)
+		fmt.Printf("Error on stop Wait() operation: %s\n", instanceName)
 		return err
 	}
 	return nil

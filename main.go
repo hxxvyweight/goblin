@@ -178,10 +178,16 @@ func getInput(reader *bufio.Reader) string {
 func pull(goblin *GoblinClient, reader *bufio.Reader) {
 	PrintInstancePrompt()
 	instanceNum := getInput(reader)
-	filePath := getInput(reader)
-	err := PullFileFromWorker(goblin, instanceNum, filePath)
-	if err != nil {
-		fmt.Errorf("Error pulling file from worker: %v\n", err)
+	entries := GetFileNames()
+	for i, entry := range entries {
+
+		reportPath := fmt.Sprintf("/tmp/%s", entry.Name())
+		fmt.Printf("Opening file [%d]: %s\n", i, entry)
+
+		err := PullFileFromWorker(goblin, instanceNum, reportPath)
+		if err != nil {
+			fmt.Printf("Error pulling file from worker: %v | File no: %d\nFile name: %s\n", err, i, entry.Name())
+		}
 	}
 }
 func push(goblin *GoblinClient, reader *bufio.Reader) {
@@ -191,9 +197,10 @@ func push(goblin *GoblinClient, reader *bufio.Reader) {
 	entries := GetFileNames()
 	for i, entry := range entries {
 
-		fmt.Printf("Opening file [%d]: %s\n", i, entry)
+		fmt.Printf("Opening file [%d]: %s\n", i, entry.Name())
+		filePath := fmt.Sprintf("queue/%s", entry.Name())
 
-		file, err := os.Open(entry.Name())
+		file, err := os.Open(filePath)
 		if err != nil {
 			fmt.Printf("Error opening file: %v\n", err)
 			continue
