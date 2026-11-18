@@ -1,41 +1,45 @@
+# Goblin
 
-## Concept
+Goblin is a CLI tool for bulk analysis, extraction and assessment of multiple file types within an isolated container. The program ingests small to large volumes of files and utilises container instances to perform the work. All execution takes place within a running Incus container, currently tested using an Alpine image. The environment has limited privileges, only what is needed to perform the process.
 
-Goblin is currently a concept I have for bulk analysis, extraction and assessment of multiple file types, within a isolated container. The program should be able to ingest small to large volumes of files, work concurrently, utilise container instances to perform the work in a useful and optimal manner.
-The execution will all take place within a running Incus Container, currently the testing is done utilising an alpine image.
-The environment should have limited privileges, only what is needed to perform said process or execution.
+The main purpose is found when there is nesting, extensions requiring extra steps to view content, and a bulk amount of files that you do not want extracted on your host PC.
 
-Each containers memory limits and usage should be calculated and set before creation, specifically based on the type of or intensity of the task.
-On the client side, the program should receive multiple files to ingest based on their path, workers should be created to each receive 1 file and produce one report at a time.
+## Architecture
 
-I believe the main purpose of this program is found when there is nesting, extensions requiring extra steps to view content, and a bulk amount of files that you do not wan't extracted on your host PC.
+- **Go** — orchestrator. REPL loop, Incus API calls, file ingestion from `./queue`.
+- **Rust** — worker binaries (per file type). Pushed into the container, perform analysis, produce a report. *(In development.)*
 
-This program will utilise Incus to its required extent depending on needed functionalities, the client documentation is found at <https://pkg.go.dev/github.com/lxc/incus/client>
-The documentation for the api is found at <https://pkg.go.dev/github.com/lxc/incus/v7/shared/api> & <https://linuxcontainers.org/incus/docs/main/>
+The Incus client communicates with the Incus daemon (`incusd`) over a Unix socket.
 
-Commands used through REPL loop, making calls to the incus API and server instance *incus.InstanceServer. It is currently possible to use all standard functionalities including:
-- **create**:   creates a  new instance e.g [worker-image-1, worker-alpine-2, worker-ubuntu-3]
-- **delete**:   deletes a specified instance within range 1..10
-- **start**:    starts a specified instance within range 1..10
-- **stop**:     stops a specified instance within range 1..10
-- **push**:     pushes a file to specified instance within range 1..10
-- **pull**:     pulls a file and/or files from specified instance within range 1..10
+## Commands
 
-Incus client communicates with the Incus daemon (incusd) primarily over a Unix Socket.
+| Command | Description |
+|---------|-------------|
+| `create` | Creates a new instance, e.g. `worker-alpine-1` |
+| `delete` | Deletes a specified instance (1..10) |
+| `start` | Starts a specified instance (1..10) |
+| `stop` | Stops a specified instance (1..10) |
+| `push` | Pushes files from `./queue` to a specified instance |
+| `pull` | Pulls a file from a specified instance back to the host (requires user confirmation) |
+| `list` | Lists all current instances with name, status, type |
+| `queue` | Shows files currently in `./queue` |
+| `help` | Prints available commands |
+| `exit` | Shuts down and exits |
 
-All file and directory handling will be written in Rust, for each analysis a Rust executable will be 'pushed' into the container along with the specified files. The Rust executable will be utilised through the Incus API client, performing typical linux commands inside the container without having to handle the Rust program on your host. The Golang portion operates as the orchestrator of multiple 'worker-alpine-N' where N is each number specifying an instance. The rust program will do analysis work, reporting and exporting within the container.
+Instances are named `worker-alpine-N` where N is 1..10. Container count, name, and status are fetched from the Incus API at the start of every run.
 
-An accepted prompt is required by the user to pull files back to the host after using the command 'pull'.
+## File Types (planned)
 
-I believe there is strong variety here with use of the incus daemon through your standard CLI, its still possible for fine tuning whether the program is active or stopped.
-Container count, name, status is fetched at the start of every run through the incus api, ensuring that count is never lost. This makes it possible for easy execution of any instances, individually.
-
-There also needs to be a seperate Rust executable for each file type listed below (currently starting with these types only):
-
-**File Types**:
 - zip
 - tar
 - gz
 - xz
 - bz2
 
+Each type gets its own Rust executable. One file in, one report out.
+
+## References
+
+- Incus client: <https://pkg.go.dev/github.com/lxc/incus/client>
+- Incus API: <https://pkg.go.dev/github.com/lxc/incus/v7/shared/api>
+- Incus docs: <https://linuxcontainers.org/incus/docs/main/>   
