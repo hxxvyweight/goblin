@@ -11,8 +11,6 @@ import (
 	"github.com/lxc/incus/shared/api"
 )
 
-var instanceName string
-
 func NewIncusInstance() (u incus.InstanceServer, err error) {
 	u, err = incus.ConnectIncusUnix("", nil)
 	if err != nil {
@@ -108,12 +106,12 @@ func StopRequest(goblin *GoblinClient, instanceNum string) error {
 
 	stateOp, err := goblin.Server.UpdateInstanceState(instanceName, stopReq, "")
 	if err != nil {
-		fmt.Printf("Failed to perform stop operation on instance: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
+		fmt.Printf("Failed to perform stop operation on instance: %s: %v\n", instanceNum, err)
 		return err
 	}
 
 	if err = stateOp.Wait(); err != nil {
-		fmt.Printf("Error on stop Wait() operation: worker-%s-%s\n%v\n", goblin.ImageName, instanceNum, err)
+		fmt.Printf("Error on stop Wait() operation: %s: %v\n", instanceNum, err)
 		return err
 	}
 	return nil
@@ -128,7 +126,7 @@ func StopAllRequest(goblin *GoblinClient, instanceName string) error {
 
 	stateOp, err := goblin.Server.UpdateInstanceState(instanceName, stopReq, "")
 	if err != nil {
-		fmt.Printf("Failed to perform stop operation on instance: worker-%s-%s\n%v\n", goblin.ImageName, instanceName, err)
+		fmt.Printf("Failed to perform stop operation on instance: %s: %v\n", instanceName, err)
 		return err
 	}
 

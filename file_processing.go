@@ -35,9 +35,3 @@ func createQueueDir() {
 	}
 	fmt.Println("Queue dir created:", INPUT_DIR)
 }
-
-func printContents(entries []os.DirEntry) {
-	for _, e := range entries {
-		fmt.Printf("[+]: %s\n", e)
-	}
-}

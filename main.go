@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -46,18 +45,6 @@ func (goblin *GoblinClient) printInstances() {
 	}
 }
 
-// Print paths of found files after viewing directory items
-func (goblin GoblinClient) printPaths(validPaths []string) {
-	for _, path := range validPaths {
-		fmt.Printf("[+]: %s\n", path)
-	}
-}
-
-// Check for .gz suffix
-func (goblin GoblinClient) hasGZSuffix(part string) bool {
-	return strings.HasSuffix(part, ".gz")
-}
-
 // Initialise goblin client, for communication with the incus API
 // Start time of program is created
 // Return to main
@@ -80,7 +67,7 @@ func newGoblinClient() (*GoblinClient, time.Time, error) {
 	server, err := NewIncusInstance()
 	if err != nil {
 		fmt.Printf("error creating new incus server")
-		log.Fatal(err)
+		return nil, t, err
 	}
 	g.Server = server
 
@@ -150,18 +137,9 @@ func main() {
 		case "help":
 			PrintHelp()
 		default:
-			continue
+			fmt.Println("Unknown command. Type 'help'.")
 		}
 	}
-}
-
-func openFile(fileName string) *os.File {
-	f, err := os.Open(fileName)
-	if err != nil {
-		log.Fatalf("failed to open file: %v", err)
-	}
-	return f
-
 }
 
 func getInput(reader *bufio.Reader) string {

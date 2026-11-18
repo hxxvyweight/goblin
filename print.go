@@ -48,7 +48,3 @@ func PrintInstancePrompt() {
 	fmt.Print("\\|/ goblin |:: Specify a instance e.g: [1] - [10]\n")
 	fmt.Print("\\|/ goblin |:: ")
 }
-func PrintFilePrompt() {
-	fmt.Print("\\|/ goblin |:: Specify a file e.g: example.zip \n")
-	fmt.Print("\\|/ goblin |:: ")
-}
