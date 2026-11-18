@@ -28,12 +28,11 @@ import (
 // or unexpected occurrences happen.
 
 type GoblinClient struct {
-	Status        bool
-	Dir           string
-	ImageName     string
-	InstanceCount int
-	Version       string
-	Server        incus.InstanceServer
+	Status    bool
+	Dir       string
+	ImageName string
+	Version   string
+	Server    incus.InstanceServer
 }
 
 // Print all current instances whether stopped or actively running
@@ -71,11 +70,10 @@ func newGoblinClient() (*GoblinClient, time.Time, error) {
 	}
 
 	g := &GoblinClient{
-		Status:        true,
-		Dir:           dir,
-		ImageName:     "alpine",
-		InstanceCount: 0,
-		Version:       "goblin-0.1",
+		Status:    true,
+		Dir:       dir,
+		ImageName: "alpine",
+		Version:   "goblin-0.1",
 	}
 	server, err := NewIncusInstance()
 	if err != nil {
