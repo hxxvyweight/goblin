@@ -38,6 +38,26 @@ Instances are named `worker-alpine-N` where N is 1..10. Container count, name, a
 
 Each type gets its own Rust executable. One file in, one report out.
 
+## Incus Setup (one-time)
+
+```bash
+# Install (Ubuntu 24.04+)
+sudo apt update
+sudo apt install incus
+
+# Add your user to the incus-admin group
+sudo usermod -aG incus-admin $USER
+
+# Re-login or run:
+newgrp incus-admin
+
+# Initialise (accept defaults)
+incus admin init
+
+# Verify
+incus list
+```
+
 ## References
 
 - Incus client: <https://pkg.go.dev/github.com/lxc/incus/client>

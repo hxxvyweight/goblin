@@ -33,5 +33,5 @@ func createQueueDir() {
 	if err := os.MkdirAll(INPUT_DIR, 0755); err != nil {
 		fmt.Errorf("Error creating directory ./goblin/queue for files intake", err)
 	}
-	fmt.Println("Queue dir created:", INPUT_DIR)
+	fmt.Println("Directory created or already exists:", INPUT_DIR)
 }
